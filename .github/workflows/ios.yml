@@ -1,0 +1,36 @@
+name: iOS unsigned IPA
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build unsigned iOS app
+        run: |
+          flutter build ios --release --no-codesign
+          mkdir -p build/ios/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ios/Payload/Runner.app
+          cd build/ios
+          zip -r appletvbox-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appletvbox-unsigned-ipa
+          path: build/ios/appletvbox-unsigned.ipa
