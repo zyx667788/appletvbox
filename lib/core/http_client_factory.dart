@@ -73,6 +73,9 @@ Future<ConnectionTask<Socket>> _connectionFactory(
   if (addrs.isEmpty) {
     throw SocketException('Failed host lookup: $name');
   }
+  if (host.scheme == 'https') {
+    return SecureSocket.startConnect(addrs.first, port, onBadCertificate: (_) => false);
+  }
   return Socket.startConnect(addrs.first, port);
 }
 
