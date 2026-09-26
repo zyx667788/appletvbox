@@ -135,9 +135,16 @@ class _PlayerPageState extends State<PlayerPage> {
       body: SafeArea(
         child: Column(
           children: [
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: Video(controller: _controller),
+            Expanded(
+              flex: 5,
+              child: Container(
+                color: Colors.black,
+                alignment: Alignment.center,
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: Video(controller: _controller),
+                ),
+              ),
             ),
             // 进度条与播放时间
             StreamBuilder<Duration>(
@@ -376,6 +383,7 @@ class _PlayerPageState extends State<PlayerPage> {
             const Divider(color: Colors.white24, height: 1),
             // 剧集选择列表
             Expanded(
+              flex: 4,
               child: ListView.builder(
                 itemCount: episodes.length,
                 itemBuilder: (context, eIdx) {
