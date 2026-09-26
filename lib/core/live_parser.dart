@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:html/parser.dart' as html_parser;
 import 'package:http/http.dart' as http;
 
+import 'http_client_factory.dart';
+
 /// 极简 m3u 直播源解析（EXTM3U）。
 class M3uParser {
   static List<LiveChannel> parse(String content) {
@@ -29,7 +31,7 @@ class M3uParser {
   }
 
   static Future<List<LiveChannel>> load(String url, {http.Client? client}) async {
-    final c = client ?? http.Client();
+    final c = client ?? createHttpClient();
     try {
       final res = await c.get(Uri.parse(url));
       if (res.statusCode != 200) {

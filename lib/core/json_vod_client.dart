@@ -2,13 +2,15 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'http_client_factory.dart';
+
 /// JSON 直出源（MacCMS10 / provide/vod 风格）客户端。
 class JsonVodClient {
   final String baseUrl;
   final http.Client _client;
 
   JsonVodClient(this.baseUrl, {http.Client? client})
-      : _client = client ?? http.Client();
+      : _client = client ?? createHttpClient();
 
   Future<Map<String, dynamic>> _get(String path,
       [Map<String, String>? query]) async {
