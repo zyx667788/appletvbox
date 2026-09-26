@@ -266,9 +266,10 @@ class _SiteBrowsePageState extends State<SiteBrowsePage> {
           site: widget.site,
           client: _client,
           item: detail.first,
-          onPlay: (episode, groups) {
-            final gIdx = groups.indexWhere((g) => g.episodes.contains(episode));
-            final validGIdx = gIdx >= 0 ? gIdx : 0;
+          onPlay: (episode, groups, {resumeSeconds, groupIndex}) {
+            final validGIdx = (groupIndex != null && groupIndex >= 0 && groupIndex < groups.length)
+                ? groupIndex
+                : groups.indexWhere((g) => g.episodes.contains(episode)).clamp(0, groups.isNotEmpty ? groups.length - 1 : 0);
             final epList = groups.isNotEmpty ? groups[validGIdx].episodes : [episode];
             final epIdx = epList.indexOf(episode);
             Navigator.push(
@@ -281,6 +282,13 @@ class _SiteBrowsePageState extends State<SiteBrowsePage> {
                   initialGroupIndex: validGIdx,
                   initialIndex: epIdx >= 0 ? epIdx : 0,
                   episodes: epList,
+                  siteKey: widget.site.key,
+                  siteName: widget.site.name,
+                  vodId: item.id,
+                  vodName: item.name,
+                  vodPic: item.pic,
+                  vodNote: item.note,
+                  initialPositionSeconds: resumeSeconds,
                 ),
               ),
             );

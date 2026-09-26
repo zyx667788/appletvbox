@@ -165,9 +165,10 @@ class _DetailLoaderPageState extends State<DetailLoaderPage> {
           site: widget.site,
           client: client,
           item: item,
-          onPlay: (episode, allGroups) {
-            final gIdx = allGroups.indexWhere((g) => g.episodes.contains(episode));
-            final validGIdx = gIdx >= 0 ? gIdx : 0;
+          onPlay: (episode, allGroups, {resumeSeconds, groupIndex}) {
+            final validGIdx = (groupIndex != null && groupIndex >= 0 && groupIndex < allGroups.length)
+                ? groupIndex
+                : allGroups.indexWhere((g) => g.episodes.contains(episode)).clamp(0, allGroups.isNotEmpty ? allGroups.length - 1 : 0);
             final epList = allGroups.isNotEmpty ? allGroups[validGIdx].episodes : [episode];
             final epIdx = epList.indexOf(episode);
             Navigator.push(
@@ -180,6 +181,13 @@ class _DetailLoaderPageState extends State<DetailLoaderPage> {
                   initialGroupIndex: validGIdx,
                   initialIndex: epIdx >= 0 ? epIdx : 0,
                   episodes: epList,
+                  siteKey: widget.site.key,
+                  siteName: widget.site.name,
+                  vodId: item.id,
+                  vodName: item.name,
+                  vodPic: item.pic,
+                  vodNote: item.note,
+                  initialPositionSeconds: resumeSeconds,
                 ),
               ),
             );

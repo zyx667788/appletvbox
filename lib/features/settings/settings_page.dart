@@ -17,15 +17,31 @@ class _SettingsPageState extends State<SettingsPage> {
   String? _current;
   bool _saving = false;
 
+  int _skipOpening = 0;
+  int _skipEnding = 0;
+  bool _autoPlayNext = true;
+  String _defaultQuality = 'auto';
+
   @override
   void initState() {
     super.initState();
-    _store.getConfigUrl().then((url) {
-      if (!mounted) return;
-      setState(() {
-        _current = url;
-        _urlController.text = url ?? '';
-      });
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final url = await _store.getConfigUrl();
+    final op = await _store.getSkipOpening();
+    final ed = await _store.getSkipEnding();
+    final ap = await _store.getAutoPlayNext();
+    final dq = await _store.getDefaultQuality();
+    if (!mounted) return;
+    setState(() {
+      _current = url;
+      _urlController.text = url ?? '';
+      _skipOpening = op;
+      _skipEnding = ed;
+      _autoPlayNext = ap;
+      _defaultQuality = dq;
     });
   }
 
@@ -41,7 +57,6 @@ class _SettingsPageState extends State<SettingsPage> {
       _urlController.text = config.url;
     });
     try {
-      // 内置源直接读 App 内打包的配置文件，不联网。
       await config.loadJson();
       await _store.setConfigUrl(config.url);
       if (!mounted) return;
@@ -84,6 +99,7 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
+          // 1. 配置源管理
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child:
@@ -128,9 +144,81 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           if (_current != null)
             Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Text('当前配置：$_current'),
+              padding: const EdgeInsets.only(top: 8, bottom: 8),
+              child: Text('当前配置：$_current',
+                  style: const TextStyle(fontSize: 12, color: Colors.white54)),
             ),
+          const SizedBox(height: 16),
+          const Divider(),
+          // 2. 播放偏好设置（片头片尾/自动连播/画质偏好）
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text('播放偏好设置',
+                style: Theme.of(context).textTheme.titleMedium),
+          ),
+          ListTile(
+            title: const Text('跳过片头'),
+            subtitle: Text(_skipOpening > 0 ? '起播自动跳过 $_skipOpening 秒' : '不跳过'),
+            trailing: DropdownButton<int>(
+              value: _skipOpening,
+              items: const [0, 30, 60, 90, 100, 120, 150]
+                  .map((s) => DropdownMenuItem(
+                        value: s,
+                        child: Text(s == 0 ? '关' : '$s 秒'),
+                      ))
+                  .toList(),
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() => _skipOpening = v);
+                _store.setSkipOpening(v);
+              },
+            ),
+          ),
+          ListTile(
+            title: const Text('跳过片尾'),
+            subtitle: Text(_skipEnding > 0 ? '距离结束 $_skipEnding 秒跳下一集' : '不跳过'),
+            trailing: DropdownButton<int>(
+              value: _skipEnding,
+              items: const [0, 30, 60, 90, 100, 120, 150]
+                  .map((s) => DropdownMenuItem(
+                        value: s,
+                        child: Text(s == 0 ? '关' : '$s 秒'),
+                      ))
+                  .toList(),
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() => _skipEnding = v);
+                _store.setSkipEnding(v);
+              },
+            ),
+          ),
+          SwitchListTile(
+            title: const Text('自动连播下一集'),
+            subtitle: const Text('当前集播放完毕或跳过片尾时自动起播下一集'),
+            value: _autoPlayNext,
+            onChanged: (v) {
+              setState(() => _autoPlayNext = v);
+              _store.setAutoPlayNext(v);
+            },
+          ),
+          ListTile(
+            title: const Text('默认清晰度偏好'),
+            subtitle: const Text('多码率视频流起播时优先选择的清晰度档位'),
+            trailing: DropdownButton<String>(
+              value: _defaultQuality,
+              items: const [
+                DropdownMenuItem(value: 'auto', child: Text('自动 (自适应)')),
+                DropdownMenuItem(value: '1080', child: Text('1080P 超清')),
+                DropdownMenuItem(value: '720', child: Text('720P 高清')),
+                DropdownMenuItem(value: '480', child: Text('480P 标清')),
+              ],
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() => _defaultQuality = v);
+                _store.setDefaultQuality(v);
+              },
+            ),
+          ),
         ],
       ),
     );
