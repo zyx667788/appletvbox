@@ -102,7 +102,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   .map((c) => RadioListTile<String>(
                         value: c.url,
                         title: Text(c.name),
-                        subtitle: const Text('来自 GitHub 公开源',
+                        subtitle: const Text('本地打包，无需外部接口，稳定直连',
                             style: TextStyle(fontSize: 12)),
                       ))
                   .toList(),
