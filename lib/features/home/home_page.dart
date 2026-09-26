@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/builtin_configs.dart';
 import '../../core/config_loader.dart';
 import '../../core/json_vod_client.dart';
 import '../../data/app_store.dart';
@@ -39,13 +40,22 @@ class _HomePageState extends State<HomePage> {
       _error = null;
     });
     try {
-      final config = await loadTvboxConfig(url);
+      final config = await _loadConfig(url);
       setState(() => _config = config);
     } catch (e) {
       setState(() => _error = '加载失败：$e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// 内置源（builtin://）直接读打包的配置文件，其它走网络。
+  Future<TvboxConfig> _loadConfig(String url) async {
+    final builtin = BuiltinConfigs.byUrl(url);
+    if (builtin != null) {
+      return TvboxConfig.fromJson(await builtin.loadJson());
+    }
+    return loadTvboxConfig(url);
   }
 
   @override

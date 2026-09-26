@@ -41,7 +41,8 @@ class _SettingsPageState extends State<SettingsPage> {
       _urlController.text = config.url;
     });
     try {
-      await loadTvboxConfig(config.url);
+      // 内置源直接读 App 内打包的配置文件，不联网。
+      await config.loadJson();
       await _store.setConfigUrl(config.url);
       if (!mounted) return;
       setState(() => _current = config.url);
