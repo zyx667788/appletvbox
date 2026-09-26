@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// 配置源、历史、收藏的本地存储。
 class AppStore {
+  static const proxyKey = 'tvbox.proxy';
   static const configKey = 'tvbox.config.url';
   static const historyKey = 'tvbox.history';
   static const favoritesKey = 'tvbox.favorites';
@@ -12,6 +13,20 @@ class AppStore {
   Future<String?> getConfigUrl() async {
     final sp = await SharedPreferences.getInstance();
     return sp.getString(configKey);
+  }
+
+  Future<String?> getProxy() async {
+    final sp = await SharedPreferences.getInstance();
+    return sp.getString(proxyKey);
+  }
+
+  Future<void> setProxy(String? value) async {
+    final sp = await SharedPreferences.getInstance();
+    if (value == null || value.isEmpty) {
+      await sp.remove(proxyKey);
+    } else {
+      await sp.setString(proxyKey, value);
+    }
   }
 
   Future<void> setConfigUrl(String url) async {
