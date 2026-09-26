@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -25,6 +26,7 @@ class PlayerPage extends StatefulWidget {
   final String? vodPic;
   final String? vodNote;
   final int? initialPositionSeconds;
+  final bool initialIsFullscreen;
 
   const PlayerPage({
     super.key,
@@ -42,6 +44,7 @@ class PlayerPage extends StatefulWidget {
     this.vodPic,
     this.vodNote,
     this.initialPositionSeconds,
+    this.initialIsFullscreen = false,
   });
 
   @override
@@ -66,6 +69,9 @@ class _PlayerPageState extends State<PlayerPage> {
   bool _skippedOpeningThisEpisode = false;
   bool _skippedEndingThisEpisode = false;
   int _lastSavedSecond = -1;
+  late bool _isFullscreen;
+  bool _showControls = true;
+  Timer? _controlsTimer;
 
   StreamSubscription? _completedSub;
   StreamSubscription? _positionSub;
@@ -86,7 +92,12 @@ class _PlayerPageState extends State<PlayerPage> {
             widget.initialGroupIndex! < _groups.length)
         ? widget.initialGroupIndex!
         : 0;
+    _isFullscreen = widget.initialIsFullscreen;
     _episodeIndex = widget.initialIndex >= 0 ? widget.initialIndex : 0;
+    if (_isFullscreen) {
+      _enterFullscreenMode();
+    }
+    _startHideControlsTimer();
 
     // 初始化 mpv 播放器并开启硬件解码
     _player = Player(
@@ -129,8 +140,60 @@ class _PlayerPageState extends State<PlayerPage> {
     await _player.open(Media(startUrl));
   }
 
+  void _enterFullscreenMode() {
+    _isFullscreen = true;
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  void _exitFullscreenMode() {
+    _isFullscreen = false;
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  void _toggleFullscreen() {
+    setState(() {
+      if (_isFullscreen) {
+        _exitFullscreenMode();
+      } else {
+        _enterFullscreenMode();
+      }
+      _showControls = true;
+      _startHideControlsTimer();
+    });
+  }
+
+  void _startHideControlsTimer() {
+    _controlsTimer?.cancel();
+    _controlsTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted && _showControls && _isFullscreen) {
+        setState(() => _showControls = false);
+      }
+    });
+  }
+
+  void _toggleControlsVisibility() {
+    setState(() {
+      _showControls = !_showControls;
+      if (_showControls) {
+        _startHideControlsTimer();
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _exitFullscreenMode();
+    _controlsTimer?.cancel();
     _saveCurrentProgress();
     _completedSub?.cancel();
     _positionSub?.cancel();
@@ -456,43 +519,10 @@ class _PlayerPageState extends State<PlayerPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final episodes = _currentEpisodes;
-    final epName = (_episodeIndex >= 0 && _episodeIndex < episodes.length)
-        ? episodes[_episodeIndex].name
-        : '';
-    final currentTitle = epName.isNotEmpty ? '${widget.title} $epName' : widget.title;
-
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: Text(currentTitle),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: '播放设置（片头片尾/连播）',
-            onPressed: _showSettingsBottomSheet,
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // 视频展示区域：按 16:9 居中契合，防止在大屏/横屏挤占控制栏
-            Expanded(
-              flex: 5,
-              child: Container(
-                color: Colors.black,
-                alignment: Alignment.center,
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: Video(controller: _controller),
-                ),
-              ),
-            ),
+  Widget _buildControlBar() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
             // 进度条与播放时间
             StreamBuilder<Duration>(
               stream: _player.stream.position,
@@ -693,9 +723,154 @@ class _PlayerPageState extends State<PlayerPage> {
                   ),
                   Text('${_speed}x',
                       style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: Icon(
+                      _isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                      color: Colors.white,
+                    ),
+                    tooltip: _isFullscreen ? '退出全屏' : '全屏横屏',
+                    onPressed: _toggleFullscreen,
+                  ),
                 ],
               ),
             ),
+
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final episodes = _currentEpisodes;
+    final epName = (_episodeIndex >= 0 && _episodeIndex < episodes.length)
+        ? episodes[_episodeIndex].name
+        : '';
+    final currentTitle = epName.isNotEmpty ? '${widget.title} $epName' : widget.title;
+
+    if (_isFullscreen) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) return;
+          _toggleFullscreen();
+        },
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          body: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _toggleControlsVisibility,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Center(
+                  child: Video(
+                    controller: _controller,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                AnimatedOpacity(
+                  opacity: _showControls ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 250),
+                  child: IgnorePointer(
+                    ignoring: !_showControls,
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Colors.black87, Colors.transparent],
+                              ),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            child: SafeArea(
+                              bottom: false,
+                              child: Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.arrow_back,
+                                        color: Colors.white),
+                                    onPressed: _toggleFullscreen,
+                                  ),
+                                  const Spacer(),
+                                  IconButton(
+                                    icon: const Icon(Icons.settings,
+                                        color: Colors.white),
+                                    tooltip: '播放设置',
+                                    onPressed: _showSettingsBottomSheet,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                                colors: [Colors.black87, Colors.transparent],
+                              ),
+                            ),
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: SafeArea(
+                              top: false,
+                              child: _buildControlBar(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: Text(currentTitle),
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: '播放设置（片头片尾/连播）',
+            onPressed: _showSettingsBottomSheet,
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // 视频展示区域：按 16:9 居中契合，防止在大屏/横屏挤占控制栏
+            Expanded(
+              flex: 5,
+              child: Container(
+                color: Colors.black,
+                alignment: Alignment.center,
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: Video(controller: _controller),
+                ),
+              ),
+            ),
+            _buildControlBar(),
             // 多线路画质源切换（如果存在多个播放线路）
             if (_groups.length > 1) ...[
               const Divider(color: Colors.white12, height: 1),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 
 import 'features/home/home_page.dart';
+import 'features/live/live_page.dart';
 import 'features/settings/settings_page.dart';
 
 Future<void> main() async {
@@ -40,7 +41,7 @@ class RootShell extends StatefulWidget {
 class _RootShellState extends State<RootShell> {
   int _index = 0;
 
-  final _pages = const [HomePage(), SettingsPage()];
+  final _pages = const [HomePage(), LivePage(), SettingsPage()];
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +52,10 @@ class _RootShellState extends State<RootShell> {
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.movie_outlined), label: '影视'),
-          NavigationDestination(icon: Icon(Icons.settings_outlined), label: '设置'),
+          NavigationDestination(
+              icon: Icon(Icons.live_tv_outlined), label: '直播'),
+          NavigationDestination(
+              icon: Icon(Icons.settings_outlined), label: '设置'),
         ],
       ),
     );
