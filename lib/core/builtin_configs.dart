@@ -7,6 +7,11 @@ import 'package:flutter/services.dart' show rootBundle;
 class BuiltinConfigs {
   static const all = [
     BuiltinConfig(
+      name: '主流影视精选（推荐）',
+      asset: 'assets/configs/mainstream.json',
+      url: 'builtin://mainstream',
+    ),
+    BuiltinConfig(
       name: '影视聚合（9918）',
       asset: 'assets/configs/9918.json',
       url: 'builtin://9918',

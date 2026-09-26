@@ -30,10 +30,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _load() async {
-    final url = await _store.getConfigUrl();
+    var url = await _store.getConfigUrl();
     if (url == null || url.isEmpty) {
-      setState(() => _error = '还没有配置源，请到设置里添加');
-      return;
+      url = 'builtin://mainstream';
+      await _store.setConfigUrl(url);
     }
     setState(() {
       _loading = true;
@@ -126,16 +126,25 @@ class _SiteBrowsePageState extends State<SiteBrowsePage> {
   late final JsonVodClient _client;
   final _store = AppStore();
   List<VodItem> _items = [];
+  List<VodType> _types = [];
   bool _loading = false;
   int _page = 1;
   bool _hasMore = true;
-  String _currentTid = '1';
+  String _currentTid = '';
 
   @override
   void initState() {
     super.initState();
     _client = JsonVodClient(widget.site.api);
     _load();
+    _loadTypes();
+  }
+
+  Future<void> _loadTypes() async {
+    final types = await _client.fetchTypes();
+    if (mounted && types.isNotEmpty) {
+      setState(() => _types = types);
+    }
   }
 
   @override
@@ -149,7 +158,10 @@ class _SiteBrowsePageState extends State<SiteBrowsePage> {
     setState(() => _loading = true);
     final page = reset ? 1 : _page;
     try {
-      final items = await _client.category(tid: _currentTid, page: page);
+      final items = await _client.category(
+        tid: _currentTid.isEmpty ? null : _currentTid,
+        page: page,
+      );
       setState(() {
         if (reset) {
           _items = items;
@@ -174,20 +186,36 @@ class _SiteBrowsePageState extends State<SiteBrowsePage> {
       appBar: AppBar(title: Text(widget.site.name)),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Wrap(
-              spacing: 8,
-              children: ['1', '2', '3', '4', '5', '6']
-                  .map((tid) => ChoiceChip(
-                        label: Text('分类$tid'),
-                        selected: _currentTid == tid,
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Row(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: const Text('全部'),
+                    selected: _currentTid.isEmpty,
+                    onSelected: (_) {
+                      if (_currentTid.isEmpty) return;
+                      setState(() => _currentTid = '');
+                      _load(reset: true);
+                    },
+                  ),
+                ),
+                ..._types.map((t) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(t.name),
+                        selected: _currentTid == t.id,
                         onSelected: (_) {
-                          _currentTid = tid;
+                          if (_currentTid == t.id) return;
+                          setState(() => _currentTid = t.id);
                           _load(reset: true);
                         },
-                      ))
-                  .toList(),
+                      ),
+                    )),
+              ],
             ),
           ),
           Expanded(

@@ -36,20 +36,25 @@ class _SearchPageState extends State<SearchPage> {
     });
     final sites = widget.config.sites
         .where((s) => s.supported && s.type == SiteType.json)
-        .take(5);
+        .take(12)
+        .toList();
     try {
-      for (final site in sites) {
+      await Future.wait(sites.map((site) async {
         final client = JsonVodClient(site.api);
         try {
           final items = await client.search(keyword);
-          if (items.isNotEmpty) _results[site.name] = items;
+          if (items.isNotEmpty && mounted) {
+            setState(() {
+              _results[site.name] = items;
+            });
+          }
         } catch (_) {
           // 单个源失败不阻塞整体搜索
         } finally {
           client.close();
         }
-      }
-      if (_results.isEmpty) _error = '没有找到结果';
+      }));
+      if (_results.isEmpty && mounted) _error = '没有找到结果';
     } finally {
       if (mounted) setState(() => _searching = false);
     }

@@ -37,9 +37,32 @@ class JsonVodClient {
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
 
-  Future<List<VodItem>> category({required String tid, int page = 1}) async {
-    final data =
-        await _get({'ac': 'videolist', 't': tid, 'pg': '$page'});
+  /// 获取站点真实的一级/二级分类列表
+  Future<List<VodType>> fetchTypes() async {
+    try {
+      final data = await _get({'ac': 'list'});
+      final rawClass = data['class'];
+      if (rawClass is List) {
+        return rawClass
+            .whereType<Map>()
+            .map((e) => VodType(
+                  id: (e['type_id'] ?? '').toString(),
+                  name: (e['type_name'] ?? '').toString(),
+                ))
+            .where((t) => t.id.isNotEmpty && t.name.isNotEmpty)
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// 按分类分页拉取影片，如果不传 tid 则拉取最新全部影片
+  Future<List<VodItem>> category({String? tid, int page = 1}) async {
+    final query = <String, String>{'ac': 'videolist', 'pg': '$page'};
+    if (tid != null && tid.isNotEmpty) {
+      query['t'] = tid;
+    }
+    final data = await _get(query);
     return _parseList(data);
   }
 
@@ -63,6 +86,13 @@ class JsonVodClient {
   }
 
   void close() => _client.close();
+}
+
+class VodType {
+  final String id;
+  final String name;
+
+  const VodType({required this.id, required this.name});
 }
 
 class VodItem {
