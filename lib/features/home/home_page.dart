@@ -267,18 +267,20 @@ class _SiteBrowsePageState extends State<SiteBrowsePage> {
           client: _client,
           item: detail.first,
           onPlay: (episode, groups) {
+            final gIdx = groups.indexWhere((g) => g.episodes.contains(episode));
+            final validGIdx = gIdx >= 0 ? gIdx : 0;
+            final epList = groups.isNotEmpty ? groups[validGIdx].episodes : [episode];
+            final epIdx = epList.indexOf(episode);
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => PlayerPage(
-                  title: '${item.name} ${episode.name}',
+                  title: item.name,
                   url: episode.url,
-                  episodes: groups.expand((g) => g.episodes).toList(),
-                  initialIndex: groups.expand((g) => g.episodes).toList().indexOf(episode),
-                  onSwitch: (idx) {
-                    final all = groups.expand((g) => g.episodes).toList();
-                    return all[idx].url;
-                  },
+                  groups: groups,
+                  initialGroupIndex: validGIdx,
+                  initialIndex: epIdx >= 0 ? epIdx : 0,
+                  episodes: epList,
                 ),
               ),
             );

@@ -166,16 +166,20 @@ class _DetailLoaderPageState extends State<DetailLoaderPage> {
           client: client,
           item: item,
           onPlay: (episode, allGroups) {
-            final episodes = allGroups.expand((g) => g.episodes).toList();
+            final gIdx = allGroups.indexWhere((g) => g.episodes.contains(episode));
+            final validGIdx = gIdx >= 0 ? gIdx : 0;
+            final epList = allGroups.isNotEmpty ? allGroups[validGIdx].episodes : [episode];
+            final epIdx = epList.indexOf(episode);
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => PlayerPage(
-                  title: '${item.name} ${episode.name}',
+                  title: item.name,
                   url: episode.url,
-                  episodes: episodes,
-                  initialIndex: episodes.indexOf(episode),
-                  onSwitch: (i) => episodes[i].url,
+                  groups: allGroups,
+                  initialGroupIndex: validGIdx,
+                  initialIndex: epIdx >= 0 ? epIdx : 0,
+                  episodes: epList,
                 ),
               ),
             );
