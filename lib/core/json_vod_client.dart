@@ -4,17 +4,32 @@ import 'package:http/http.dart' as http;
 
 import 'http_client_factory.dart';
 
+/// 把配置里的 api 地址归一化成可用的接口基址。
+/// 兼容 .../provide/vod/ 、...?ac=list 、.../at/xml/ 等写法。
+String normalizeApiBase(String raw) {
+  final qIdx = raw.indexOf('?');
+  var base = qIdx >= 0 ? raw.substring(0, qIdx) : raw;
+  final idx = base.indexOf('provide/vod');
+  if (idx >= 0) return base.substring(0, idx + 'provide/vod'.length);
+  return base.endsWith('/') ? base.substring(0, base.length - 1) : base;
+}
+
 /// JSON 直出源（MacCMS10 / provide/vod 风格）客户端。
 class JsonVodClient {
   final String baseUrl;
   final http.Client _client;
 
-  JsonVodClient(this.baseUrl, {http.Client? client})
-      : _client = client ?? createHttpClient();
+  JsonVodClient(String rawBaseUrl, {http.Client? client})
+      : baseUrl = normalizeApiBase(rawBaseUrl),
+        _client = client ?? createHttpClient();
 
-  Future<Map<String, dynamic>> _get(String path,
-      [Map<String, String>? query]) async {
-    final uri = Uri.parse(baseUrl).resolveUri(Uri(path: path, queryParameters: query));
+  Future<Map<String, dynamic>> _get([Map<String, String>? query]) async {
+    final parts = <String>[];
+    query?.forEach((k, v) {
+      parts.add('$k=${Uri.encodeQueryComponent(v)}');
+    });
+    final uri =
+        Uri.parse(parts.isEmpty ? baseUrl : '$baseUrl?${parts.join('&')}');
     final res = await _client.get(uri, headers: {'User-Agent': 'okhttp/3.15'});
     if (res.statusCode != 200) {
       throw Exception('源请求失败：HTTP ${res.statusCode}');
@@ -23,17 +38,18 @@ class JsonVodClient {
   }
 
   Future<List<VodItem>> category({required String tid, int page = 1}) async {
-    final data = await _get('provide/vod', {'ac': 'videolist', 't': tid, 'pg': '$page'});
+    final data =
+        await _get({'ac': 'videolist', 't': tid, 'pg': '$page'});
     return _parseList(data);
   }
 
   Future<List<VodItem>> search(String keyword) async {
-    final data = await _get('provide/vod', {'ac': 'videolist', 'wd': keyword});
+    final data = await _get({'ac': 'videolist', 'wd': keyword});
     return _parseList(data);
   }
 
   Future<List<VodItem>> detail(String ids) async {
-    final data = await _get('provide/vod', {'ac': 'videolist', 'ids': ids});
+    final data = await _get({'ac': 'videolist', 'ids': ids});
     return _parseList(data);
   }
 
@@ -74,7 +90,7 @@ class VodItem {
     this.playUrl,
   });
 
-  /// 把 vod_play_url（格式：集名$链接#集名$链接$$$另一个播放源...）拆成播放组。
+  /// 把 vod_play_url（集名$链接#集名$链接，多线路用 $$$ 分隔）拆成播放组。
   List<PlayGroup> get playGroups {
     final raw = playUrl ?? '';
     final groups = <PlayGroup>[];
@@ -84,16 +100,17 @@ class VodItem {
       final episodes = <Episode>[];
       for (final pair in rawGroups[i].split('#')) {
         if (pair.isEmpty) continue;
-        final parts = pair.split('\$');
+        final parts = pair.split(r'$');
         if (parts.length < 2) continue;
         episodes.add(Episode(
           name: parts[0],
-          url: parts.sublist(1).join('\$'),
+          url: parts.sublist(1).join(r'$'),
         ));
       }
       if (episodes.isNotEmpty) {
         groups.add(PlayGroup(
-          name: i < names.length && names[i].isNotEmpty ? names[i] : '播放源${i + 1}',
+          name:
+              i < names.length && names[i].isNotEmpty ? names[i] : '播放源${i + 1}',
           episodes: episodes,
         ));
       }

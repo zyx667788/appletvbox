@@ -4,17 +4,16 @@ enum SiteType { json, xbpq, xyq, js, jar, unknown }
 
 class SiteTypeHelper {
   static SiteType parse(String? api) {
-    if (api == null) return SiteType.unknown;
+    if (api == null || api.isEmpty) return SiteType.unknown;
     final lower = api.toLowerCase();
-    if (lower.startsWith('csp_xbpq')) return SiteType.xbpq;
-    if (lower.startsWith('csp_xyq')) return SiteType.xyq;
-    if (lower.startsWith('csp_')) {
-      if (lower.contains('jar') || lower.contains('.jar')) return SiteType.jar;
-      return SiteType.js;
-    }
-    if (lower.endsWith('.json') || lower.contains('provide/vod')) {
+    final isHttp = lower.startsWith('http://') || lower.startsWith('https://');
+    if (isHttp && (lower.contains('provide/vod') || lower.endsWith('.json'))) {
       return SiteType.json;
     }
+    if (lower.startsWith('csp_xbpq')) return SiteType.xbpq;
+    if (lower.startsWith('csp_xyq')) return SiteType.xyq;
+    if (lower.startsWith('csp_')) return SiteType.jar;
+    if (lower.endsWith('.js') || lower.contains('drpy')) return SiteType.js;
     return SiteType.unknown;
   }
 
@@ -53,7 +52,8 @@ class Site {
     this.quickSearch,
   });
 
-  bool get supported => type != SiteType.jar && type != SiteType.unknown;
+  /// 一期只有 JSON 直出源可用，其余类型在 UI 明确禁用。
+  bool get supported => type == SiteType.json;
 
   factory Site.fromJson(Map<String, dynamic> json) {
     final api = (json['api'] ?? json['url'] ?? '').toString();
