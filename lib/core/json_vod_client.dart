@@ -30,11 +30,29 @@ class JsonVodClient {
     });
     final uri =
         Uri.parse(parts.isEmpty ? baseUrl : '$baseUrl?${parts.join('&')}');
-    final res = await _client.get(uri, headers: {'User-Agent': 'okhttp/3.15'});
-    if (res.statusCode != 200) {
-      throw Exception('源请求失败：HTTP ${res.statusCode}');
+    try {
+      final res = await _client
+          .get(uri, headers: {'User-Agent': 'okhttp/3.15'})
+          .timeout(const Duration(seconds: 8));
+      if (res.statusCode != 200) {
+        throw Exception('源站服务异常：HTTP ${res.statusCode}');
+      }
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (e) {
+      final s = e.toString();
+      if (s.contains('TimeoutException')) {
+        throw Exception('连接源站超时，该源可能已停服');
+      }
+      if (s.contains('Connection reset') ||
+          s.contains('Failed host lookup') ||
+          s.contains('HandshakeException')) {
+        throw Exception('源站网络连接受阻（已被网络阻断或关闭）');
+      }
+      if (s.contains('FormatException')) {
+        throw Exception('源站返回数据格式错误（非标准 JSON）');
+      }
+      rethrow;
     }
-    return jsonDecode(res.body) as Map<String, dynamic>;
   }
 
   /// 获取站点真实的一级/二级分类列表

@@ -135,14 +135,6 @@
       "api": "https://api.apibdzy.com/api.php/provide/vod/",
       "searchable": 1,
       "quickSearch": 1
-    },
-    {
-      "key": "uku",
-      "name": "U酷资源",
-      "type": 1,
-      "api": "https://api.ukuapi.com/api.php/provide/vod/",
-      "searchable": 1,
-      "quickSearch": 1
     }
   ]
 }

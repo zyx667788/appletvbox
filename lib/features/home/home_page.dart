@@ -131,6 +131,7 @@ class _SiteBrowsePageState extends State<SiteBrowsePage> {
   int _page = 1;
   bool _hasMore = true;
   String _currentTid = '';
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -155,7 +156,10 @@ class _SiteBrowsePageState extends State<SiteBrowsePage> {
 
   Future<void> _load({bool reset = false}) async {
     if (_loading) return;
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      if (reset) _errorMessage = null;
+    });
     final page = reset ? 1 : _page;
     try {
       final items = await _client.category(
@@ -173,7 +177,9 @@ class _SiteBrowsePageState extends State<SiteBrowsePage> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('加载失败：$e')));
+        final msg = e.toString().replaceFirst('Exception: ', '');
+        setState(() => _errorMessage = msg);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -219,7 +225,37 @@ class _SiteBrowsePageState extends State<SiteBrowsePage> {
             ),
           ),
           Expanded(
-            child: GridView.builder(
+            child: _items.isEmpty && !_loading
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _errorMessage != null
+                                ? Icons.wifi_off
+                                : Icons.movie_outlined,
+                            size: 52,
+                            color: Colors.white38,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            _errorMessage ?? '该分类下暂无影视资源',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                color: Colors.white70, fontSize: 14),
+                          ),
+                          const SizedBox(height: 16),
+                          FilledButton.tonal(
+                            onPressed: () => _load(reset: true),
+                            child: const Text('重试刷新'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : GridView.builder(
               padding: const EdgeInsets.all(8),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
